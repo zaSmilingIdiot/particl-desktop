@@ -4,9 +4,7 @@ const rxIpc       = require('rx-ipc-electron/lib/main').default;
 const Observable  = require('rxjs/Observable').Observable;
 
 const cookie      = require('./cookie');
-const _options    = require('../options');
-
-const daemon      = require('../daemon/daemon');
+const options    = require('../options').get();
 
 /* spyOnRpc will output all RPC calls being made */
 const spyOnRpc = false;
@@ -15,14 +13,13 @@ let HOSTNAME;
 let PORT;
 let TIMEOUT = 30000;
 let rpcOptions;
-let auth;
+let auths = [];
 
 exports.init = function() {
-  let options = _options.get();
 
   HOSTNAME = options.rpcbind || 'localhost';
   PORT     = options.port;
-  auth     = cookie.getAuth(_options.get());
+  auths[0] = cookie.getAuth(options);
 
   initIpcListener();
 }
@@ -34,11 +31,24 @@ exports.destroy = function() {
 /*
 ** execute a single RPC call
 */
-exports.call = function(method, params, callback) {
+exports.call = function(method, params, callback, regtestNodeNum) {
 
-  if (!auth) {
-    exports.init()
+  let actualPort = PORT;
+  let nodeId = 0;
+  if (options.regtest) {
+    nodeId = (typeof regtestNodeNum === 'number') ? regtestNodeNum : nodeId;
+    actualPort += nodeId;
+
+    if (!auths[nodeId]) {
+      auths[nodeId] = cookie.getAuth(options, nodeId);
+    }
   }
+
+  if (!auths[nodeId]) {
+    exports.init();
+  }
+
+  const auth = auths[nodeId];
 
   if (!callback) {
     callback = function (){};
@@ -49,26 +59,28 @@ exports.call = function(method, params, callback) {
     method: method,
     params: params
   });
-  
+
   if(spyOnRpc) {
     log.debug('rpc.call:', postData);
   }
 
-  if (!rpcOptions) {
+  if (!rpcOptions || options.regtest) {
     rpcOptions = {
       hostname: HOSTNAME,
-      port:     PORT,
+      port:     actualPort,
       path:     '/',
       method:   'POST',
       headers:  { 'Content-Type': 'application/json' }
     }
   }
 
-  if (auth && rpcOptions.auth !== auth) {
-    rpcOptions.auth = auth
+  if (auth && ( (rpcOptions.auth !== auth) || options.regtest )){
+    rpcOptions.auth = auth;
   }
 
   rpcOptions.headers['Content-Length'] = postData.length;
+
+  log.info(`@@@@@@@@@@ RPC CALL:: method ${method}, auth: ${JSON.stringify(auth)} options: `, rpcOptions);
 
   const request = http.request(rpcOptions, response => {
     let data = '';

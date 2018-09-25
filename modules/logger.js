@@ -9,9 +9,11 @@ exports.init = function () {
   log.transports.file.appName = process.platform == 'linux'
     ? 'particl-desktop'
     : 'Particl Desktop';
-  let logPath = options.testnet
-    ? 'particl-desktop-testnet.log'
-    : 'particl-desktop.log';
+  let logPath = options.regtest
+    ? 'particl-desktop-regtest.log'
+    : options.testnet
+      ? 'particl-desktop-testnet.log'
+      : 'particl-desktop.log';
   log.transports.file.file = log.transports.file
     .findLogPath(log.transports.file.appName)
     .replace('log.log', logPath);

@@ -1,7 +1,6 @@
 const electron      = require('electron');
 const log           = require('electron-log');
 
-const ipc           = require('./ipc/ipc');
 const rpc           = require('./rpc/rpc');
 const zmq           = require('./zmq/zmq');
 
@@ -58,14 +57,8 @@ daemonManager.on('status', (status, msg) => {
   if (status === 'done') {
     log.debug('daemonManager returned successfully, starting daemon!');
     multiwallet.get()
-    // TODO: activate for prompting wallet
-    // .then(wallets       => ipc.promptWalletChoosing(wallets, mainWindow.webContents))
     .then(chosenWallets => daemon.start(chosenWallets))
     .catch(err          => log.error(err));
-    // TODO: activate for daemon ready IPC message to RPCService
-    // .then(()            => ipc.daemonReady(mainWindow.webContents))
-
-
   } else if (status === 'error') {
     // Failed to get clientBinaries.json => connection issues?
     if (msg === 'Request timed out') {
@@ -102,7 +95,7 @@ electron.app.on('before-quit', function beforeQuit(event) {
   market.stop();
   daemon.stop().then(() => {
     log.info('daemon.stop() resolved!');
-  })
+  }).catch(err => log.error('Error on before-quit signal: ', err));
 });
 
 electron.app.on('quit', (event, exitCode) => {

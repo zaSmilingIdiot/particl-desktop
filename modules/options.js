@@ -35,7 +35,7 @@ exports.parse = function() {
 
   // make a copy of process.argv, because we'll be changing it
   // which messes with the map operator
-  const args = process.argv.slice(0); 
+  const args = process.argv.slice(0);
 
   args.map((arg, index) => {
     let nDashes = arg.lastIndexOf('-') + 1;
@@ -62,9 +62,11 @@ exports.parse = function() {
 
   options.port = options.rpcport
     ? options.rpcport // custom rpc port
-    : options.testnet
-      ? 51935  // default testnet port
-      : 51735; // default mainnet port
+    : options.regtest
+      ? 19792   // default regtest port
+      : options.testnet
+        ? 51935  // default testnet port
+        : 51735; // default mainnet port
   console.log('port=' + options.port);
   _options = options;
   return options;

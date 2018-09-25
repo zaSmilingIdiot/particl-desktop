@@ -147,50 +147,6 @@ class DaemonManager extends EventEmitter {
           log.debug('skipping ask user because Electron is not yet linked for that');
           this._writeLocalConfig(latestConfig);
           resolve(latestConfig);
-
-          // const wnd = Windows.createPopup('clientUpdateAvailable', _.extend({
-          //   useWeb3: false,
-          //   electronOptions: {
-          //     width: 600,
-          //     height: 340,
-          //     alwaysOnTop: false,
-          //     resizable: false,
-          //     maximizable: false
-          //   }
-          // }, {
-          //   sendData: {
-          //     uiAction_sendData: {
-          //       name: nodeType,
-          //       version: nodeVersion,
-          //       checksum: `${algorithm}: ${hash}`,
-          //       downloadUrl: binaryVersion.download.url,
-          //       restart
-          //     }
-          //   }
-          // }), (update) => {
-          //   // update
-          //   if (update === 'update') {
-          //     this._writeLocalConfig(latestConfig);
-          //
-          //     resolve(latestConfig);
-          //
-          //     // skip
-          //   } else if (update === 'skip') {
-          //     fs.writeFileSync(
-          //       path.join(app.getPath('userData'), 'skippedNodeVersion.json'),
-          //       nodeVersion
-          //     );
-          //
-          //     resolve(localConfig);
-          //   }
-          //
-          //   wnd.close();
-          // });
-          //
-          // // if the window is closed, simply continue and as again next time
-          // wnd.on('close', () => {
-          //   resolve(localConfig);
-          // });
         });
       }
 
@@ -259,17 +215,8 @@ class DaemonManager extends EventEmitter {
           }
         });
 
-
-        // restart if it downloaded while running
-        // if (restart && binariesDownloaded) {
-        //   log.info('Restarting app ...');
-        //   app.relaunch();
-        //   app.quit();
-        // }
-
         this._emit('done');
 
-        // return this.startDaemon();
       });
     })
     .catch((err) => {

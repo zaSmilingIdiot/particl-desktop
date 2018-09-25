@@ -6,27 +6,28 @@ const fs            = require('fs');
 const url           = require('url');
 const platform      = require('os').platform();
 
+const options = require('./modules/options').parse();
+const log     = require('./modules/logger').init();
+const init    = require('./modules/init');
+const _auth = require('./modules/webrequest/http-auth');
 
 /* correct appName and userData to respect Linux standards */
 if (process.platform === 'linux') {
   app.setName('particl-desktop');
-  app.setPath('userData', `${app.getPath('appData')}/${app.getName()}`);
+  app.setPath('userData', path.join(app.getPath('appData'), app.getName()));
 }
 
 /* check for paths existence and create */
-[ app.getPath('userData'),
-  app.getPath('userData') + '/testnet'
-].map(path => !fs.existsSync(path) && fs.mkdir(path));
+const PATH_USER_DATA = app.getPath('userData');
+if (!fs.existsSync(PATH_USER_DATA)) fs.mkdir(PATH_USER_DATA);
 
-if (app.getVersion().includes('RC'))
-  process.argv.push(...['-testnet']);
-
-const options = require('./modules/options').parse();
-const log     = require('./modules/logger').init();
-const init    = require('./modules/init');
-const rpc     = require('./modules/rpc/rpc');
-const _auth = require('./modules/webrequest/http-auth');
-const daemon  = require('./modules/daemon/daemon');
+if (options.regtest) {
+  setupRegtest();
+} else if (options.testnet || app.getVersion().includes('RC')) {
+  setupTestnet();
+} else {
+  setupMainnet();
+}
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
@@ -41,10 +42,10 @@ app.on('ready', () => {
   log.info('app ready')
   log.debug('argv', process.argv);
   log.debug('options', options);
-  
+
   // initialize the authentication filter
   _auth.init();
-  
+
   initMainWindow();
   init.start(mainWindow);
 });
@@ -140,14 +141,6 @@ function makeTray() {
   // Default tray image + icon
   let trayImage = path.join(__dirname, 'resources/icon.png');
 
-  // Determine appropriate icon for platform
-  // if (platform === 'darwin') {
-  //    trayImage = path.join(__dirname, 'src/assets/icons/logo.icns');
-  // }
-  // else if (platform === 'win32' || platform === 'win64') {
-  //   trayImage = path.join(__dirname, 'src/assets/icons/logo.ico');
-  // }
-
   // The tray context menu
   const contextMenu = electron.Menu.buildFromTemplate([
     {
@@ -228,3 +221,120 @@ function makeTray() {
 
   return trayImage;
 }
+
+
+function mkDir(dirPath, root) {
+  var dirs = dirPath.split(path.sep);
+  var dir = dirs.shift();
+  root = (root || '') + (root[root.length-1] === path.sep ? '' : path.sep) + dir + path.sep;
+
+  try {
+    if (!fs.existsSync(root)) fs.mkdirSync(root);
+    else if (!fs.statSync(root).isDirectory()) throw `path ${root} is not a directory!!`;
+  } catch (e) {
+    throw e;
+  }
+
+  return !dirs.length || mkDir(dirs.join(path.sep), root);
+};
+
+
+/*
+ * Creates paths and files for regtest connectivity
+ */
+function setupRegtest() {
+  const TOTAL_NODES = Math.min( (+options.regtest_node_count || 3), 3);
+  const BASE_PORT = 14792;
+  const CONFIG_FILE_NAME = 'particl.conf';
+
+  const rmDirContents = (dir, rmSelf) => {
+    // if (dir == __dirname) {
+    //   return;
+    // }
+
+    let filesList;
+    filesList = fs.readdirSync(dir);
+    if (filesList.length > 0) {
+      filesList.forEach((f, idx) => {
+        const filePath = path.join(dir, f);
+        if (fs.statSync(filePath).isDirectory()) {
+          rmDirContents(filePath, true);
+        } else {
+          if (f !== CONFIG_FILE_NAME)
+            fs.unlinkSync(filePath);
+        }
+      });
+    }
+
+    if (rmSelf === true) {
+      fs.rmdirSync(dir);
+    }
+  }
+
+  const getConfigForRegtestNode = (nodeId, rpcPort, port) => {
+    let daemonConfig = `
+regtest=1
+
+[regtest] # > 0.16 only
+port=${port}
+rpcport=${rpcPort}
+rpcuser=rpcuser${nodeId}
+rpcpassword=rpcpass${nodeId}
+daemon=1
+server=1
+discover=0
+listenonion=0
+bind=${ options.rpcbind || '127.0.0.1' }
+findpeers=0
+debugexclude=libevent
+displaylocaltime=1
+acceptnonstdtxn=0
+minstakeinterval=10
+debug=1
+`
+
+    for (let ii=0; ii < TOTAL_NODES; ii++) {
+      if (nodeId === ii) continue;
+      daemonConfig += `addnode=${ options.rpcbind || '127.0.0.1' }:${BASE_PORT + ii}\n`;
+    }
+    return daemonConfig;
+
+  };
+
+  for (let nodeNum =0; nodeNum < TOTAL_NODES; nodeNum++) {
+    const pathDaemonRelative = path.join('regtest', String(nodeNum));
+    const pathDaemonAbs = path.join(PATH_USER_DATA, pathDaemonRelative);
+
+    try {
+      // Remove node data directory contents
+      if (!options.clearDirContents && fs.existsSync(pathDaemonAbs) && fs.statSync(pathDaemonAbs).isDirectory()) {
+        rmDirContents(pathDaemonAbs);
+      }
+
+      // Check for existence of (create if not existing) node data directory
+      if (!mkDir(pathDaemonRelative, PATH_USER_DATA)) throw new Error(`cannot create directory '${pathDaemonAbs}'`);
+
+      // Create daemon config file for the node if not existing
+      const conFilePath = path.join(pathDaemonAbs, CONFIG_FILE_NAME);
+      if (!fs.existsSync(conFilePath))
+        fs.writeFileSync(conFilePath, getConfigForRegtestNode(nodeNum, +options.port + nodeNum, BASE_PORT + nodeNum));
+    } catch(err) {
+      log.e(`regtest setup for node ${nodeNum} failed: `, err);
+    }
+  }
+
+  process.argv.push(...['-regtest']);
+};
+
+/*
+ * Creates paths and files for testnet connectivity
+*/
+function setupTestnet () {
+  // mkDir('testnet', PATH_USER_DATA);
+  process.argv.push(...['-testnet']);
+};
+
+/*
+ * Creates paths and files for mainnet connectivity
+*/
+function setupMainnet () {};

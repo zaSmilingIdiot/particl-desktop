@@ -2,6 +2,7 @@ const fs   = require('fs');
 const os   = require('os');
 const path = require('path');
 const log  = require('electron-log');
+const app = require('electron').app;
 
 /*
 ** returns Particl config folder
@@ -90,12 +91,16 @@ function mkDir(dirPath, root) {
 ** returns the current RPC cookie
 ** RPC cookie is regenerated at every particld startup
 */
-function getAuth(options) {
+function getAuth(options, regtestNode) {
 
-  if (options.rpcuser && options.rpcpassword) {
+  if (!options.regtest && options.rpcuser && options.rpcpassword) {
     return options.rpcuser + ':' + options.rpcpassword;
   }
 
+  if (options.regtest) {
+    const nodeNum = (typeof regtestNode === 'number') ? regtestNode : 0;
+    return `rpcuser${nodeNum}:rpcpass${nodeNum}`;
+  }
   let auth;
   var dataDir = options.datadir ? options.datadir : findCookiePath();
   const COOKIE_FILE = dataDir
@@ -109,7 +114,7 @@ function getAuth(options) {
     log.debug('could not find cookie file! path:', COOKIE_FILE);
   }
 
-  return (auth)
+  return (auth);
 }
 
 exports.getAuth = getAuth;

@@ -1,16 +1,11 @@
 import { Injectable, OnDestroy } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Log } from 'ng2-logger';
-import { Subject } from 'rxjs/Subject';
 import { Observable } from 'rxjs/Observable';
 import { map, catchError } from 'rxjs/operators';
 
 import { IpcService } from '../ipc/ipc.service';
 import { environment } from '../../../environments/environment';
-
-const MAINNET_PORT = 51735;
-const TESTNET_PORT = 51935;
-const HOSTNAME = 'localhost';
 
 declare global {
   interface Window {

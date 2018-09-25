@@ -2,7 +2,7 @@ const log = require('electron-log');
 const { session } = require('electron')
 const { URL } = require('url')
 
-const _options = require('../options');
+const _options = require('../options').get();
 const cookie = require('../rpc/cookie');
 
 // Modify the user agent for all requests to the following urls.
@@ -13,7 +13,7 @@ const filter = {
 let whitelist = new Map();
 
 exports.init = function () {
-    loadDev();
+    if (_options.dev) loadDev();
     loadMarketAuthentication();
     loadWalletAuthentication();
     loadGithub();
@@ -29,7 +29,7 @@ exports.init = function () {
             // get authentication
             let auth = getAuthentication(u);
 
-            if(auth === undefined && u === "localhost:4200") {
+            if(_options.dev && auth === undefined && u === "localhost:4200") {
                 auth = false;
             }
 
@@ -76,8 +76,6 @@ function getAuthentication(url) {
 }
 
 function loadMarketAuthentication() {
-    let options = _options.get();
-    // let key = "dev1.particl.xyz:";
     let key = "localhost:3000";
     let value = {
         name: "market",
@@ -88,12 +86,11 @@ function loadMarketAuthentication() {
 }
 
 function loadWalletAuthentication() {
-    let options = _options.get();
-    let key = (options.rpcbind || 'localhost') + ":" + options.port;
+    let key = (_options.rpcbind || 'localhost') + ":" + _options.port;
     console.log('adding key=' + key);
     let value = {
         name: "wallet",
-        auth: cookie.getAuth(options)
+        auth: cookie.getAuth(_options)
     }
 
     whitelist.set(key, value);
@@ -101,13 +98,11 @@ function loadWalletAuthentication() {
 
 // when restarting, delete authentication
 exports.removeWalletAuthentication = () => {
-    let options = _options.get();
-    let key = (options.rpcbind || 'localhost') + ":" + options.port;
+    let key = (_options.rpcbind || 'localhost') + ":" + _options.port;
     whitelist.get(key).auth = undefined;
 }
 
 function loadDev() {
-    let options = _options.get();
     let key = 'localhost:4200';
     let value = {
         name: "dev",
