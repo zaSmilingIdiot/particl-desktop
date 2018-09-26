@@ -13,13 +13,13 @@ let HOSTNAME;
 let PORT;
 let TIMEOUT = 30000;
 let rpcOptions;
-let auths = [];
+let auth;
 
 exports.init = function() {
 
   HOSTNAME = options.rpcbind || 'localhost';
   PORT     = options.port;
-  auths[0] = cookie.getAuth(options);
+  auth     = cookie.getAuth(options);
 
   initIpcListener();
 }
@@ -31,24 +31,11 @@ exports.destroy = function() {
 /*
 ** execute a single RPC call
 */
-exports.call = function(method, params, callback, regtestNodeNum) {
+exports.call = function(method, params, callback) {
 
-  let actualPort = PORT;
-  let nodeId = 0;
-  if (options.regtest) {
-    nodeId = (typeof regtestNodeNum === 'number') ? regtestNodeNum : nodeId;
-    actualPort += nodeId;
-
-    if (!auths[nodeId]) {
-      auths[nodeId] = cookie.getAuth(options, nodeId);
-    }
-  }
-
-  if (!auths[nodeId]) {
+  if (!auth) {
     exports.init();
   }
-
-  const auth = auths[nodeId];
 
   if (!callback) {
     callback = function (){};
@@ -67,20 +54,18 @@ exports.call = function(method, params, callback, regtestNodeNum) {
   if (!rpcOptions || options.regtest) {
     rpcOptions = {
       hostname: HOSTNAME,
-      port:     actualPort,
+      port:     PORT,
       path:     '/',
       method:   'POST',
       headers:  { 'Content-Type': 'application/json' }
     }
   }
 
-  if (auth && ( (rpcOptions.auth !== auth) || options.regtest )){
+  if (auth && (rpcOptions.auth !== auth)){
     rpcOptions.auth = auth;
   }
 
   rpcOptions.headers['Content-Length'] = postData.length;
-
-  log.info(`@@@@@@@@@@ RPC CALL:: method ${method}, auth: ${JSON.stringify(auth)} options: `, rpcOptions);
 
   const request = http.request(rpcOptions, response => {
     let data = '';

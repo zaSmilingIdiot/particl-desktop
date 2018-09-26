@@ -246,6 +246,7 @@ function setupRegtest() {
   const TOTAL_NODES = Math.min( (+options.regtest_node_count || 3), 3);
   const BASE_PORT = 14792;
   const CONFIG_FILE_NAME = 'particl.conf';
+  const nodeNum = 0;
 
   const rmDirContents = (dir, rmSelf) => {
     // if (dir == __dirname) {
@@ -301,26 +302,24 @@ debug=1
 
   };
 
-  for (let nodeNum =0; nodeNum < TOTAL_NODES; nodeNum++) {
-    const pathDaemonRelative = path.join('regtest', String(nodeNum));
-    const pathDaemonAbs = path.join(PATH_USER_DATA, pathDaemonRelative);
+  const pathDaemonRelative = path.join('regtest', String(nodeNum));
+  const pathDaemonAbs = path.join(PATH_USER_DATA, pathDaemonRelative);
 
-    try {
-      // Remove node data directory contents
-      if (!options.clearDirContents && fs.existsSync(pathDaemonAbs) && fs.statSync(pathDaemonAbs).isDirectory()) {
-        rmDirContents(pathDaemonAbs);
-      }
-
-      // Check for existence of (create if not existing) node data directory
-      if (!mkDir(pathDaemonRelative, PATH_USER_DATA)) throw new Error(`cannot create directory '${pathDaemonAbs}'`);
-
-      // Create daemon config file for the node if not existing
-      const conFilePath = path.join(pathDaemonAbs, CONFIG_FILE_NAME);
-      if (!fs.existsSync(conFilePath))
-        fs.writeFileSync(conFilePath, getConfigForRegtestNode(nodeNum, +options.port + nodeNum, BASE_PORT + nodeNum));
-    } catch(err) {
-      log.e(`regtest setup for node ${nodeNum} failed: `, err);
+  try {
+    // Remove node data directory contents
+    if (!options.clearDirContents && fs.existsSync(pathDaemonAbs) && fs.statSync(pathDaemonAbs).isDirectory()) {
+      rmDirContents(pathDaemonAbs);
     }
+
+    // Check for existence of (create if not existing) node data directory
+    if (!mkDir(pathDaemonRelative, PATH_USER_DATA)) throw new Error(`cannot create directory '${pathDaemonAbs}'`);
+
+    // Create daemon config file for the node if not existing
+    const conFilePath = path.join(pathDaemonAbs, CONFIG_FILE_NAME);
+    if (!fs.existsSync(conFilePath))
+      fs.writeFileSync(conFilePath, getConfigForRegtestNode(nodeNum, +options.port + nodeNum, BASE_PORT + nodeNum));
+  } catch(err) {
+    log.e(`regtest setup failed: `, err);
   }
 
   process.argv.push(...['-regtest']);
@@ -330,7 +329,6 @@ debug=1
  * Creates paths and files for testnet connectivity
 */
 function setupTestnet () {
-  // mkDir('testnet', PATH_USER_DATA);
   process.argv.push(...['-testnet']);
 };
 
